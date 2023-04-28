@@ -36,37 +36,33 @@ class BDD_Dataset(Dataset):
         self.label_files = sorted(os.listdir(label_dir))
 
     def __len__(self):
-        # return len(self.image_files)
-        return np.minimum(len(self.image_files), 10000)
+        return len(self.image_files)
+        # return np.minimum(len(self.image_files), 5000)
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.img_dir, self.image_files[idx])
         label_path = os.path.join(self.label_dir, self.label_files[idx])
 
         image = Image.open(img_path).convert("RGB")
-        # label = Image.open(label_path).convert("1")
-        label = Image.open(label_path).convert("RGB")
-        # label = Image.open(label_path)
+        label = Image.open(label_path).convert("1")
+        # label = Image.open(label_path).convert("RGB")
         
         # label.show()
         # label.save(f"test_{idx}.png")
         
         # only mark the red channel as 1 (since red is the lane color)
-        label = np.asarray(label)
+        # label = np.asarray(label)
         
-        labelnew = np.zeros_like(label)
-        labelnew[label[..., 0] > 100] = [255, 255, 255]
-        labelnew[label[..., 0] <= 100] = [0, 0, 0]
-        
+        # labelnew = np.zeros_like(label)
         # labelnew[label[..., 0] > 100] = [255, 255, 255]
-        # labelnew[label[..., 2] > 100] = [128, 128, 128]
-        # labelnew[label[..., 0] <= 100 and label[..., 2] <= 100] = [0, 0, 0]
-        # labelnew = label
+        # labelnew[label[..., 0] <= 100] = [0, 0, 0]
         
         # label = (red_channel > 0).astype(np.uint8)
         
-        labelnew = Image.fromarray(labelnew)
-        labelnew = labelnew.convert("1")
+        # labelnew = Image.fromarray(labelnew)
+        # labelnew = labelnew.convert("1")
+        
+        labelnew = label
 
         if self.transform:
             image = self.transform(image)
@@ -189,16 +185,13 @@ def display_and_save(image, label, pred, save_path, idx):
     ax[0].set_title('Image')
     
     ax[1].imshow(label.squeeze().cpu().numpy(), cmap='jet')
-    # ax[1].imshow(label.permute(1, 2, 0).cpu().numpy(), cmap='jet')
     ax[1].set_title('Ground Truth')
     
     ax[2].imshow(pred.squeeze().cpu().numpy(), cmap='jet')
-    # ax[2].imshow(pred.permute(1, 2, 0).cpu().numpy(), cmap='jet')
     ax[2].set_title('Prediction')
     
     ax[3].imshow(image.permute(1, 2, 0).cpu().numpy())
     ax[3].imshow(pred.squeeze().cpu().numpy(), alpha=0.4, cmap='jet_r')
-    # ax[3].imshow(pred.permute(1, 2, 0).cpu().numpy(), alpha=0.4, cmap='jet_r')
     ax[3].set_title('Prediction Overlayed')
     
     # plt.show()
@@ -256,6 +249,8 @@ def main():
             # indicate progress
             # print(f"\rEpoch {epoch + 1}/{EPOCHS}, Batch {batch_idx + 1}/{len(train_loader)}", end="")
             
+            # idx = batch_idx + 1
+            
             images, labels = images.to(DEVICE), labels.to(DEVICE)
 
             optimizer.zero_grad()
@@ -299,9 +294,11 @@ def main():
                     global_idx = i * BATCH_SIZE + idx
                     if global_idx in random_indices:
                         # labels.show()
+                        # print(labels)
                         pred = torch.sigmoid(pred)
                         # print(pred)
                         pred = (pred > 0.5).float()  # Apply a threshold to convert the probabilities to binary values
+                        # print(pred)
                         display_and_save(img, gt, pred, "results", global_idx)
 
         val_loss /= len(val_loader)

@@ -26,15 +26,24 @@ torch.cuda.is_available()
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def overlay_image(image, overlay):
+def overlay_image(image, overlay, color="red", alpha=0.2):
     # set the transparency level for overlay
-    alpha = 0.3
+    # alpha = 0.2
     
     zeros = np.uint8(np.zeros_like(overlay))
+    ones = np.uint8(np.ones_like(overlay))
 
     # convert the output to 3 channels
     overlay = np.uint8(overlay)
-    overlay = np.dstack((overlay, overlay, zeros))
+    # overlay = np.dstack((overlay, overlay, zeros))
+    
+    if color == "cyan":
+        overlay = np.dstack((overlay, overlay, ones))
+    elif color == "green":
+        overlay = np.dstack((ones, overlay, ones))
+    elif color == "red":
+        overlay = np.dstack((ones, ones, overlay))
+        
 
     # apply the overlay
     cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
@@ -46,13 +55,14 @@ def main(source_path=None):
 
     # load in video capture for source
     if source_path is None:
-        vid = cv2.VideoCapture("videos/city15.mov")
+        vid = cv2.VideoCapture("videos/vid_sample_2.mp4")
     else:
         vid = cv2.VideoCapture(source_path)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     
     MODEL_PATH = "models/v1/newmodel2.pth"
+    MODEL_PATH_DRIVABLE = "models/drivablev1/newmodel4.pth"
     
     print(f"Using device: {DEVICE}")
 
@@ -60,13 +70,17 @@ def main(source_path=None):
     model = LaneSegmentationModel().to(DEVICE)
     model.load_state_dict(torch.load(MODEL_PATH))
     model.eval()
+    
+    model_drivable = LaneSegmentationModel().to(DEVICE)
+    model_drivable.load_state_dict(torch.load(MODEL_PATH_DRIVABLE))
+    model_drivable.eval()
 
     # loop to process each frame of video
     while vid.isOpened():
         _, im1 = vid.read()
 
         # im1 = cv2.rotate(im1, cv2.cv2.ROTATE_90_CLOCKWISE)
-        im1 = cv2.rotate(im1, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # im1 = cv2.rotate(im1, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
         
         transform = transforms.Compose([
             transforms.Resize((256, 256)),
@@ -80,12 +94,19 @@ def main(source_path=None):
         
         output = model(image.unsqueeze(0).to(DEVICE))
         output = torch.sigmoid(output)
+        
+        output_drivable = model_drivable(image.unsqueeze(0).to(DEVICE))
+        output_drivable = torch.sigmoid(output_drivable)
         # output = (output > 0.7).float()
         # print(output)
         output = output.squeeze(0).detach().cpu().numpy()
         
         output_new = np.zeros_like(output)
-        output_new[output > 0.7] = 255
+        output_new[output > 0.65] = 255
+        
+        output_drivable = output_drivable.squeeze(0).detach().cpu().numpy()
+        output_drivable_new = np.zeros_like(output_drivable)
+        output_drivable_new[output_drivable > 0.65] = 255
         
         # overlay output on original image
         # processed_image = overlay_image(im1, output.detach().numpy())
@@ -98,6 +119,7 @@ def main(source_path=None):
         
         # resize output to match im1
         output_new = cv2.resize(output_new, (im1.shape[1], im1.shape[0]))
+        output_drivable_new = cv2.resize(output_drivable_new, (im1.shape[1], im1.shape[0]))
         
         # print(im1)
         
@@ -108,7 +130,10 @@ def main(source_path=None):
         # output = np.array(output)
         
         # processed_image = cv2.addWeighted(output,0.5,im1,0.7,0)
-        processed_image = overlay_image(im1, output_new)
+        output_drivable_new[output_new > 0] = 0
+        
+        processed_image = overlay_image(im1, output_drivable_new, color="red")
+        processed_image = overlay_image(processed_image, output_new, color="green")
         
         # print(im1.shape)
 
