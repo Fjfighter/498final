@@ -62,7 +62,8 @@ def main(source_path=None):
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     
     MODEL_PATH = "models/v1/newmodel2.pth"
-    MODEL_PATH_DRIVABLE = "models/drivablev1/newmodel4.pth"
+    # MODEL_PATH_DRIVABLE = "models/drivablev2/newmodel9.pth"
+    MODEL_PATH_DRIVABLE = "newmodel2.pth"
     
     print(f"Using device: {DEVICE}")
 
@@ -106,7 +107,7 @@ def main(source_path=None):
         
         output_drivable = output_drivable.squeeze(0).detach().cpu().numpy()
         output_drivable_new = np.zeros_like(output_drivable)
-        output_drivable_new[output_drivable > 0.65] = 255
+        output_drivable_new[output_drivable > 0.1] = 255
         
         # overlay output on original image
         # processed_image = overlay_image(im1, output.detach().numpy())
@@ -130,7 +131,7 @@ def main(source_path=None):
         # output = np.array(output)
         
         # processed_image = cv2.addWeighted(output,0.5,im1,0.7,0)
-        output_drivable_new[output_new > 0] = 0
+        # output_drivable_new[output_new > 0] = 0
         
         processed_image = overlay_image(im1, output_drivable_new, color="red")
         processed_image = overlay_image(processed_image, output_new, color="green")

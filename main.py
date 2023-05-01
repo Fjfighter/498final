@@ -18,11 +18,11 @@ import torch.nn.functional as F
 # Configuration
 BDD_DIR = "bdd100k" 
 TRAIN_IMAGES = os.path.join(BDD_DIR, "images", "100k", "train")
-TRAIN_LABELS = os.path.join(BDD_DIR, "labels", "drivable", "colormaps", "train")
+TRAIN_LABELS = os.path.join(BDD_DIR, "labels", "lane", "colormaps", "train")
 VAL_IMAGES = os.path.join(BDD_DIR, "images", "100k", "val")
-VAL_LABELS = os.path.join(BDD_DIR, "labels", "drivable", "colormaps", "val")
+VAL_LABELS = os.path.join(BDD_DIR, "labels", "lane", "colormaps", "val")
 BATCH_SIZE = 8
-EPOCHS = 5
+EPOCHS = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Custom dataset class for BDD
