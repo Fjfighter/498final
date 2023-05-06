@@ -45,43 +45,16 @@ class BDD_Dataset(Dataset):
 
         image = Image.open(img_path).convert("RGB")
         label = Image.open(label_path).convert("1")
-        # label = Image.open(label_path).convert("RGB")
-        
-        # label.show()
-        # label.save(f"test_{idx}.png")
-        
-        # only mark the red channel as 1 (since red is the lane color)
-        # label = np.asarray(label)
-        
-        # labelnew = np.zeros_like(label)
-        # labelnew[label[..., 0] > 100] = [255, 255, 255]
-        # labelnew[label[..., 0] <= 100] = [0, 0, 0]
-        
-        # label = (red_channel > 0).astype(np.uint8)
-        
-        # labelnew = Image.fromarray(labelnew)
-        # labelnew = labelnew.convert("1")
         
         labelnew = label
 
         if self.transform:
             image = self.transform(image)
-            # label = transforms.ToTensor()(label)
             labelnew = self.transform(labelnew)
-        # if self.transform:
-        #     image = self.transform(image)
-        # if self.label_transform: 
-        #     label = self.label_transform(label)
-        
-        # print(image.shape, label.shape)
-        
-        
-        
-        # print(label)
-        # savePlot(label, "test")
 
         return image, labelnew
     
+# convolution block for UNet
 class UNetConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, padding, batch_norm):
         super(UNetConvBlock, self).__init__()
@@ -102,6 +75,7 @@ class UNetConvBlock(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+# upsampling block for UNet
 class UNetUpBlock(nn.Module):
     def __init__(self, in_channels, out_channels, up_mode, padding, batch_norm):
         super(UNetUpBlock, self).__init__()
@@ -129,6 +103,7 @@ class UNetUpBlock(nn.Module):
 
         return out
 
+# lane segmentation model, implemented using UNet
 class LaneSegmentationModel(nn.Module):
     def __init__(self, in_channels=3, out_channels=1, depth=5, start_filts=64, up_mode='upconv', padding=True, batch_norm=False):
         super(LaneSegmentationModel, self).__init__()
@@ -165,19 +140,7 @@ class LaneSegmentationModel(nn.Module):
         return self.last(x).squeeze(1)
         # return self.last(x)
 
-
-def display_image(image, label):
-    plt.imshow(image.permute(1, 2, 0).cpu().numpy())
-    plt.imshow(label.squeeze().cpu().numpy(), alpha=0.4, cmap='jet')
-    # plt.imshow(pred.squeeze().cpu().numpy(), alpha=0.4, cmap='jet_r')
-    plt.show()
-    
-def save_result(image, label, pred, save_path, idx):
-    os.makedirs(save_path, exist_ok=True)
-    save_image(image, os.path.join(save_path, f"image_{idx}.png"))
-    save_image(label.float(), os.path.join(save_path, f"ground_truth_{idx}.png"))
-    save_image(pred.float(), os.path.join(save_path, f"prediction_{idx}.png"))
-    
+# generates plots to visualize the model's performance 
 def display_and_save(image, label, pred, save_path, idx):
     fig, ax = plt.subplots(1, 4, figsize=(15, 5))
     
@@ -196,16 +159,6 @@ def display_and_save(image, label, pred, save_path, idx):
     
     # plt.show()
     plt.savefig(os.path.join(save_path, f"image_{idx}.png"))
-
-    # save_result(image, label, pred, save_path, idx)
-    
-def savePlot(image, save_path):
-    # # plt.imshow(image.permute(1, 2, 0).cpu().numpy())
-    # fig, ax = plt.subplots(1, 2, figsize=(15, 5))
-    # ax[0].imshow(image.permute(1, 2, 0).cpu().numpy())
-    
-    # plt.savefig(os.path.join(save_path, f"image.png"))
-    image.save(os.path.join(save_path, f"image.png"))
     
 
 def main():
@@ -214,24 +167,10 @@ def main():
         transforms.Resize((256, 256)),
         transforms.ToTensor()
     ])
-    
-    # Preprocessing transforms
-    # image_transform = transforms.Compose([
-    #     transforms.Resize((256, 256)),
-    #     transforms.ToTensor()
-    # ])
-
-    # label_transform = transforms.Compose([
-    #     transforms.Resize((256, 256)),
-    #     transforms.ToTensor(),
-    #     transforms.Lambda(lambda x: x.squeeze(0))  # Remove the channel dimension
-    # ])
 
     # Create datasets and data loaders
     train_dataset = BDD_Dataset(TRAIN_IMAGES, TRAIN_LABELS, transform=transform)
     val_dataset = BDD_Dataset(VAL_IMAGES, VAL_LABELS, transform=transform)
-    # train_dataset = BDD_Dataset(TRAIN_IMAGES, TRAIN_LABELS, transform=image_transform, label_transform=label_transform)
-    # val_dataset = BDD_Dataset(VAL_IMAGES, VAL_LABELS, transform=image_transform, label_transform=label_transform)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
@@ -246,11 +185,6 @@ def main():
         model.train()
         train_loss = 0.0
         for batch_idx, (images, labels) in enumerate(tqdm(train_loader)):
-            # indicate progress
-            # print(f"\rEpoch {epoch + 1}/{EPOCHS}, Batch {batch_idx + 1}/{len(train_loader)}", end="")
-            
-            # idx = batch_idx + 1
-            
             images, labels = images.to(DEVICE), labels.to(DEVICE)
 
             optimizer.zero_grad()
@@ -284,11 +218,6 @@ def main():
                 outputs = model(images)
                 loss = criterion(outputs, labels.squeeze())
                 val_loss += loss.item()
-                
-                # if i == 0:
-                #     pred = torch.sigmoid(outputs)
-                #     pred = (pred > 0.5).float()  # Apply a threshold to convert the probabilities to binary values
-                #     display_image(images[0], labels[0], pred[0])
                 
                 for idx, (img, gt, pred) in enumerate(zip(images, labels, outputs)):
                     global_idx = i * BATCH_SIZE + idx

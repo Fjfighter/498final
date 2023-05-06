@@ -98,48 +98,17 @@ def main(source_path=None):
         
         output_drivable = model_drivable(image.unsqueeze(0).to(DEVICE))
         output_drivable = torch.sigmoid(output_drivable)
-        # output = (output > 0.7).float()
-        # print(output)
+
         output = output.squeeze(0).detach().cpu().numpy()
         
         output_new = np.zeros_like(output)
         output_new[output > 0.65] = 255
         
-        output_drivable = output_drivable.squeeze(0).detach().cpu().numpy()
-        output_drivable_new = np.zeros_like(output_drivable)
-        output_drivable_new[output_drivable > 0.1] = 255
-        
-        # overlay output on original image
-        # processed_image = overlay_image(im1, output.detach().numpy())
-        # cv2.imshow("results", output_new)
-        
-        # processed_image = output
-        
-        # # resize im1 to match output
-        # im1 = cv2.resize(im1, (output.shape[1], output.shape[0]))
-        
         # resize output to match im1
         output_new = cv2.resize(output_new, (im1.shape[1], im1.shape[0]))
-        output_drivable_new = cv2.resize(output_drivable_new, (im1.shape[1], im1.shape[0]))
         
-        # print(im1)
+        processed_image = overlay_image(im1, output_new, color="cyan")
         
-        # output = cv2.cvtColor(output, cv2.COLOR_GRAY2RGB)
-        
-        # convert im1 and output to np arrays
-        # im1 = np.array(im1)
-        # output = np.array(output)
-        
-        # processed_image = cv2.addWeighted(output,0.5,im1,0.7,0)
-        # output_drivable_new[output_new > 0] = 0
-        
-        processed_image = overlay_image(im1, output_drivable_new, color="red")
-        processed_image = overlay_image(processed_image, output_new, color="green")
-        
-        # print(im1.shape)
-
-        
-
         # display final results
         cv2.imshow("results", processed_image)
 
