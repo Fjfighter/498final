@@ -12,15 +12,16 @@ import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 import random
 from tqdm import tqdm
+from sklearn.metrics import accuracy_score
 
 import torch.nn.functional as F
 
 # Configuration
 BDD_DIR = "bdd100k" 
 TRAIN_IMAGES = os.path.join(BDD_DIR, "images", "100k", "train")
-TRAIN_LABELS = os.path.join(BDD_DIR, "labels", "lane", "colormaps", "train")
+TRAIN_LABELS = os.path.join(BDD_DIR, "labels", "drivable", "colormaps", "train")
 VAL_IMAGES = os.path.join(BDD_DIR, "images", "100k", "val")
-VAL_LABELS = os.path.join(BDD_DIR, "labels", "lane", "colormaps", "val")
+VAL_LABELS = os.path.join(BDD_DIR, "labels", "drivable", "colormaps", "val")
 BATCH_SIZE = 8
 EPOCHS = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,9 +45,20 @@ class BDD_Dataset(Dataset):
         label_path = os.path.join(self.label_dir, self.label_files[idx])
 
         image = Image.open(img_path).convert("RGB")
-        label = Image.open(label_path).convert("1")
+        label = Image.open(label_path).convert("RGB")
+        # label = Image.open(label_path).convert("1")
         
-        labelnew = label
+        # labelnew = label
+        
+        # only mark the red channel as 1 (since red is the lane color)
+        label = np.asarray(label)
+        
+        labelnew = np.zeros_like(label)
+        labelnew[label[..., 0] > 100] = [255, 255, 255]
+        labelnew[label[..., 0] <= 100] = [0, 0, 0]
+        
+        labelnew = Image.fromarray(labelnew)
+        labelnew = labelnew.convert("1")
 
         if self.transform:
             image = self.transform(image)
@@ -237,7 +249,61 @@ def main():
         
         # Save the model
         torch.save(model.state_dict(), f'newmodel{epoch}.pth')
+        
+def test_accuracy(model, dataset, device):
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+    model.eval()
+    total_accuracy = 0.0
+    num_samples = 0
+
+    with torch.no_grad():
+        for images, labels in tqdm(dataloader):
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            preds = torch.sigmoid(outputs)
+            preds = preds.squeeze(0).cpu().numpy()
+            
+            preds_new = np.zeros_like(preds)
+            preds_new[preds > 0.5] = 1
+            labels_new = labels.squeeze().cpu().numpy()
+
+            # Compute accuracy for the current sample
+            correct_preds = np.sum(preds_new == labels_new)
+            accuracy = correct_preds / (preds_new.shape[0] * preds_new.shape[0])
+            
+            total_accuracy += accuracy
+            num_samples += 1
+
+            # Compute the average accuracy
+            avg_accuracy = total_accuracy / num_samples
+            
+            # if (num_samples % 100 == 0):
+            #     print(f"Accuracy after {num_samples} samples: {avg_accuracy}")
+    return avg_accuracy
     
     
 if __name__ == '__main__':
     main()
+    
+    
+    # UNCOMMENT TO TEST THE MODEL
+    
+    # MODEL_PATH = "models/v1/newmodel2.pth"
+    
+    # model = LaneSegmentationModel().to(DEVICE)
+    # model.load_state_dict(torch.load(MODEL_PATH))
+    # model.eval()
+    
+    # transform = transforms.Compose([
+    #     transforms.Resize((256, 256)),
+    #     transforms.ToTensor()
+    # ])
+    
+    # # Load test dataset
+    # TEST_IMAGES = os.path.join(BDD_DIR, "images", "100k", "test")
+    # TEST_LABELS = os.path.join(BDD_DIR, "labels", "drivable", "colormaps", "test")
+    # test_dataset = BDD_Dataset(TEST_IMAGES, TEST_LABELS, transform=transform)
+    
+    # # Test the model
+    # test_acc = test_accuracy(model, test_dataset, DEVICE)
+    # print(f"Test Accuracy: {test_acc}")
